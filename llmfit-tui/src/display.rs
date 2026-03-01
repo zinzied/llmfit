@@ -186,10 +186,7 @@ pub fn display_model_detail(fit: &ModelFit) {
     if !fit.model.gguf_sources.is_empty() {
         println!("{}", "GGUF Downloads:".bold().underline());
         for src in &fit.model.gguf_sources {
-            println!(
-                "  {} → https://huggingface.co/{}",
-                src.provider, src.repo
-            );
+            println!("  {} → https://huggingface.co/{}", src.provider, src.repo);
         }
         println!(
             "  {}",

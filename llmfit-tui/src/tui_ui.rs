@@ -10,7 +10,9 @@ use ratatui::{
 };
 
 use crate::theme::ThemeColors;
-use crate::tui_app::{App, AvailabilityFilter, DownloadCapability, DownloadProvider, FitFilter, InputMode, PlanField};
+use crate::tui_app::{
+    App, AvailabilityFilter, DownloadCapability, DownloadProvider, FitFilter, InputMode, PlanField,
+};
 use llmfit_core::fit::FitLevel;
 use llmfit_core::fit::SortColumn;
 use llmfit_core::hardware::is_running_in_wsl;
@@ -317,9 +319,11 @@ fn draw_search_and_filters(frame: &mut Frame, app: &App, area: Rect, tc: &ThemeC
         .title(" Avail [a] ")
         .title_style(Style::default().fg(tc.muted));
 
-    let avail_text =
-        Paragraph::new(Line::from(Span::styled(app.availability_filter.label(), avail_style)))
-            .block(avail_block);
+    let avail_text = Paragraph::new(Line::from(Span::styled(
+        app.availability_filter.label(),
+        avail_style,
+    )))
+    .block(avail_block);
     frame.render_widget(avail_text, chunks[4]);
 
     // Theme indicator
@@ -916,10 +920,7 @@ fn draw_detail(frame: &mut Frame, app: &App, area: Rect, tc: &ThemeColors) {
                     format!("  📦 {:<12}", src.provider),
                     Style::default().fg(tc.info),
                 ),
-                Span::styled(
-                    format!("hf.co/{}", src.repo),
-                    Style::default().fg(tc.fg),
-                ),
+                Span::styled(format!("hf.co/{}", src.repo), Style::default().fg(tc.fg)),
             ]));
         }
         right_lines.push(Line::from(""));
@@ -1013,7 +1014,9 @@ fn draw_detail(frame: &mut Frame, app: &App, area: Rect, tc: &ThemeColors) {
         };
         let x = left_area.x + 1 + label_len + app.plan_cursor_position as u16;
         let y = left_area.y + 1 + row_offset;
-        if x < left_area.x + left_area.width.saturating_sub(1) && y < left_area.y + left_area.height.saturating_sub(1) {
+        if x < left_area.x + left_area.width.saturating_sub(1)
+            && y < left_area.y + left_area.height.saturating_sub(1)
+        {
             frame.set_cursor_position((x, y));
         }
     }

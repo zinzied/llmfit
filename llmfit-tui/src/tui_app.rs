@@ -83,8 +83,8 @@ impl FitFilter {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AvailabilityFilter {
     All,
-    HasGguf,     // Has GGUF download sources (unsloth, bartowski, etc.)
-    Installed,   // Already installed in a local runtime
+    HasGguf,   // Has GGUF download sources (unsloth, bartowski, etc.)
+    Installed, // Already installed in a local runtime
 }
 
 impl AvailabilityFilter {
