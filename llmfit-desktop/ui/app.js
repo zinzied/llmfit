@@ -4,6 +4,7 @@ const invoke = window.__TAURI_INTERNALS__
 
 let allFits = [];
 let ollamaAvailable = false;
+let llamacppAvailable = false;
 let pullInterval = null;
 
 function esc(s) {
@@ -94,8 +95,11 @@ function showModal(fit) {
     ? '<span class="badge badge-installed">Installed</span>'
     : '<span class="badge badge-not-installed">Not Installed</span>';
 
-  const downloadBtn = (!fit.installed && ollamaAvailable)
+  const downloadBtnOllama = (!fit.installed && ollamaAvailable)
     ? '<button class="btn-download" onclick="pullModel(\'' + esc(fit.name) + '\')">⬇ Download via Ollama</button>'
+    : '';
+  const downloadBtnLlamaCpp = (!fit.installed && llamacppAvailable && fit.has_gguf)
+    ? '<button class="btn-download btn-download-llamacpp" onclick="pullModelLlamaCpp(\'' + esc(fit.name) + '\')">⬇ Download GGUF via llama.cpp</button>'
     : '';
 
   body.innerHTML = `
@@ -158,7 +162,8 @@ function showModal(fit) {
     </div>
 
     <div class="modal-actions">
-      ${downloadBtn}
+      ${downloadBtnOllama}
+      ${downloadBtnLlamaCpp}
       <button class="btn-close" onclick="closeModal()">Close</button>
     </div>
   `;
@@ -213,6 +218,48 @@ async function pullModel(name) {
   } catch (e) {
     textEl.textContent = 'Error: ' + e;
     if (btn) btn.disabled = false;
+  }
+}
+
+async function pullModelLlamaCpp(name) {
+  const statusEl = document.getElementById('pull-status');
+  const textEl = statusEl.querySelector('.pull-status-text');
+  const barEl = statusEl.querySelector('.pull-bar-fill');
+  const btns = document.querySelectorAll('.btn-download');
+
+  statusEl.style.display = '';
+  btns.forEach(b => b.disabled = true);
+  textEl.textContent = 'Resolving GGUF repo...';
+
+  try {
+    await invoke('start_pull_llamacpp', { modelTag: name });
+
+    pullInterval = setInterval(async () => {
+      try {
+        const s = await invoke('poll_pull');
+        if (!s) return;
+        textEl.textContent = s.status;
+        if (s.percent != null) barEl.style.width = s.percent + '%';
+        if (s.done) {
+          clearInterval(pullInterval);
+          pullInterval = null;
+          if (s.error) {
+            textEl.textContent = 'Error: ' + s.error;
+            btns.forEach(b => b.disabled = false);
+          } else {
+            textEl.textContent = 'Download complete!';
+            barEl.style.width = '100%';
+            // Refresh model list
+            await loadModels();
+          }
+        }
+      } catch (e) {
+        console.error('Poll error:', e);
+      }
+    }, 500);
+  } catch (e) {
+    textEl.textContent = 'Error: ' + e;
+    btns.forEach(b => b.disabled = false);
   }
 }
 
@@ -286,6 +333,7 @@ document.getElementById('fit-filter').addEventListener('change', applyFilters);
 
 async function init() {
   ollamaAvailable = await invoke('is_ollama_available') || false;
+  llamacppAvailable = await invoke('is_llamacpp_available') || false;
   loadSpecs();
   loadModels();
 }

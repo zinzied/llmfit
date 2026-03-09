@@ -3,7 +3,7 @@
 use llmfit_core::fit::{FitLevel, InferenceRuntime, ModelFit, RunMode};
 use llmfit_core::hardware::SystemSpecs;
 use llmfit_core::models::ModelDatabase;
-use llmfit_core::providers::{ModelProvider, OllamaProvider, PullEvent};
+use llmfit_core::providers::{LlamaCppProvider, ModelProvider, OllamaProvider, PullEvent};
 use serde::Serialize;
 use std::sync::Mutex;
 use tauri::State;
@@ -42,6 +42,7 @@ struct ModelFitInfo {
     use_case: String,
     runtime: String,
     installed: bool,
+    has_gguf: bool,
     notes: Vec<String>,
     release_date: Option<String>,
 }
@@ -56,6 +57,7 @@ struct PullStatus {
 
 struct AppState {
     ollama: OllamaProvider,
+    llamacpp: LlamaCppProvider,
     pull_handle: Mutex<Option<llmfit_core::providers::PullHandle>>,
 }
 
@@ -88,10 +90,22 @@ fn get_model_fits() -> Result<Vec<ModelFitInfo>, String> {
     let specs = SystemSpecs::detect();
     let db = ModelDatabase::new();
 
+    let ollama = OllamaProvider::new();
+    let (_, ollama_installed) = ollama.detect_with_installed();
+
+    let llamacpp = LlamaCppProvider::new();
+    let llamacpp_installed = llamacpp.installed_models();
+
     let mut fits: Vec<ModelFit> = db
         .get_all_models()
         .iter()
-        .map(|m| ModelFit::analyze(m, &specs))
+        .filter(|m| llmfit_core::fit::backend_compatible(m, &specs))
+        .map(|m| {
+            let mut fit = ModelFit::analyze(m, &specs);
+            fit.installed = llmfit_core::providers::is_model_installed(&m.name, &ollama_installed)
+                || llmfit_core::providers::is_model_installed_llamacpp(&m.name, &llamacpp_installed);
+            fit
+        })
         .collect();
 
     fits = llmfit_core::fit::rank_models_by_fit(fits);
@@ -125,6 +139,8 @@ fn get_model_fits() -> Result<Vec<ModelFitInfo>, String> {
                 InferenceRuntime::Mlx => "MLX".to_string(),
             },
             installed: f.installed,
+            has_gguf: llmfit_core::providers::has_gguf_mapping(&f.model.name)
+                || !llmfit_core::providers::hf_name_to_gguf_candidates(&f.model.name).is_empty(),
             notes: f.notes.clone(),
             release_date: f.model.release_date.clone(),
         })
@@ -134,6 +150,17 @@ fn get_model_fits() -> Result<Vec<ModelFitInfo>, String> {
 #[tauri::command]
 fn start_pull(model_tag: String, state: State<'_, AppState>) -> Result<String, String> {
     let handle = state.ollama.start_pull(&model_tag)?;
+    let mut pull = state.pull_handle.lock().map_err(|e| e.to_string())?;
+    *pull = Some(handle);
+    Ok("started".to_string())
+}
+
+#[tauri::command]
+fn start_pull_llamacpp(model_tag: String, state: State<'_, AppState>) -> Result<String, String> {
+    let repo = llmfit_core::providers::first_existing_gguf_repo(&model_tag)
+        .ok_or_else(|| "No GGUF repo found in remote registry".to_string())?;
+
+    let handle = state.llamacpp.start_pull(&repo)?;
     let mut pull = state.pull_handle.lock().map_err(|e| e.to_string())?;
     *pull = Some(handle);
     Ok("started".to_string())
@@ -185,18 +212,26 @@ fn is_ollama_available(state: State<'_, AppState>) -> bool {
     state.ollama.is_available()
 }
 
+#[tauri::command]
+fn is_llamacpp_available(state: State<'_, AppState>) -> bool {
+    state.llamacpp.is_available()
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(AppState {
             ollama: OllamaProvider::new(),
+            llamacpp: LlamaCppProvider::new(),
             pull_handle: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             get_system_specs,
             get_model_fits,
             start_pull,
+            start_pull_llamacpp,
             poll_pull,
             is_ollama_available,
+            is_llamacpp_available,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
