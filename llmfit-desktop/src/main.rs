@@ -43,6 +43,7 @@ struct ModelFitInfo {
     runtime: String,
     installed: bool,
     has_gguf: bool,
+    has_ollama: bool,
     notes: Vec<String>,
     release_date: Option<String>,
 }
@@ -141,6 +142,7 @@ fn get_model_fits() -> Result<Vec<ModelFitInfo>, String> {
             installed: f.installed,
             has_gguf: llmfit_core::providers::has_gguf_mapping(&f.model.name)
                 || !llmfit_core::providers::hf_name_to_gguf_candidates(&f.model.name).is_empty(),
+            has_ollama: llmfit_core::providers::has_ollama_mapping(&f.model.name),
             notes: f.notes.clone(),
             release_date: f.model.release_date.clone(),
         })

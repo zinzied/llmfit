@@ -1102,6 +1102,10 @@ const LLAMACPP_GGUF_MAPPINGS: &[(&str, &str)] = &[
         "smollm2-135m-instruct",
         "bartowski/SmolLM2-135M-Instruct-GGUF",
     ),
+    (
+        "phi-mini-moe-instruct",
+        "gabriellarson/Phi-mini-MoE-instruct-GGUF",
+    ),
 ];
 
 /// Look up a known GGUF repo for an HF model name.

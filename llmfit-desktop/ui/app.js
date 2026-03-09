@@ -96,10 +96,10 @@ function showModal(fit) {
     : '<span class="badge badge-not-installed">Not Installed</span>';
 
   const downloadBtnOllama = (!fit.installed && ollamaAvailable)
-    ? '<button class="btn-download" onclick="pullModel(\'' + esc(fit.name) + '\')">⬇ Download via Ollama</button>'
+    ? `<button class="btn-download" id="btn-ollama-dl">⬇ Download via Ollama</button>`
     : '';
-  const downloadBtnLlamaCpp = (!fit.installed && llamacppAvailable && fit.has_gguf)
-    ? '<button class="btn-download btn-download-llamacpp" onclick="pullModelLlamaCpp(\'' + esc(fit.name) + '\')">⬇ Download GGUF via llama.cpp</button>'
+  const downloadBtnLlamaCpp = (!fit.installed && fit.has_gguf)
+    ? `<button class="btn-download btn-download-llamacpp" id="btn-llamacpp-dl">⬇ Download GGUF via llama.cpp</button>`
     : '';
 
   body.innerHTML = `
@@ -164,9 +164,21 @@ function showModal(fit) {
     <div class="modal-actions">
       ${downloadBtnOllama}
       ${downloadBtnLlamaCpp}
-      <button class="btn-close" onclick="closeModal()">Close</button>
+      <button class="btn-close" id="btn-close-modal">Close</button>
     </div>
   `;
+
+  // Use event delegation on the modal body to ensure clicks are registered
+  // even if elements are dynamically recreated or affected by DOM timings.
+  body.onclick = (e) => {
+    if (e.target.closest('.btn-close')) {
+      closeModal();
+    } else if (e.target.closest('#btn-ollama-dl')) {
+      pullModel(fit.name);
+    } else if (e.target.closest('#btn-llamacpp-dl')) {
+      pullModelLlamaCpp(fit.name);
+    }
+  };
 
   modal.classList.add('visible');
 }
